@@ -9,7 +9,7 @@ namespace lzw
 	template <class Value>
 	class decoder
 	{
-		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :( 
+		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :(
 		using map_type = std::vector<Value>;
 	private:
 		map_type _map;
@@ -38,7 +38,7 @@ namespace lzw
 			Value current;
 			assert(current_code < _map.size());
 			std::vector<char> decoded = {_map[current_code][0]}; //main output -- decoded file
-			
+
 			++begin;
 			while (begin != end)
 			{
@@ -66,9 +66,14 @@ namespace lzw
 			}
 			return decoded;
 		}
+
+		//идем по файлы до первого неэкраннированного \n, делаем тред, ему отдаем этот интервал и так до конца
+		template <class RandomAccessIter>
+		static std::vector<char> parallel_decode(RandomAccessIter begin, RandomAccessIter end)
+		{
+
+		}
+
 	};
 }
-
 #endif // DECODER_HPP
-
-

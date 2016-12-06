@@ -1,17 +1,22 @@
 #ifndef ENCODER_HPP
 #define ENCODER_HPP
 #include <unordered_map>
+#include <thread>
+#include <future>
+
 
 namespace lzw
 {
 	template <class Key>
 	class encoder
 	{
-		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :( 
+		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :(
 		using map_type = std::unordered_map<Key, uint16_t>;
+		using data_type = std::vector<uint16_t>;
 
 		map_type _map;
 	public:
+		using parallel_encoder_type = std::vector<data_type>;
 		encoder()
 		{
 			for (int i = 0; i < 0xff; i++)
@@ -27,12 +32,12 @@ namespace lzw
 		~encoder() = default;
 
 		template <class InputIter>
-		std::vector<uint16_t> encode(InputIter begin, InputIter end)
+		data_type encode(InputIter begin, InputIter end)
 		{
 			//init block
 			Key previous; // previous character/characters
 			Key current; // current character/characters
-			std::vector<uint16_t> encoded; // main output -- encoded string
+			data_type encoded; // main output -- encoded string
 
 			//main cycle
 			while (begin != end)
@@ -44,7 +49,7 @@ namespace lzw
 					previous += current;
 				}
 				else
-				{ // if we don't find 
+				{ // if we don't find
 					auto search = _map.find(previous);
 					encoded.emplace_back(search->second);
 					_map.emplace(previous + current, _map.size());
@@ -56,6 +61,51 @@ namespace lzw
 			encoded.emplace_back(search->second);
 			return encoded;
 		}
+
+		template <class RandomAccessIter>
+		static std::vector<data_type> parallel_encode(RandomAccessIter begin, RandomAccessIter end)
+		{
+			const unsigned int size = end - begin;
+			const unsigned int nthreads = std::thread::hardware_concurrency();
+			const unsigned int size_per_thread = size / nthreads;
+			std::vector<std::future<data_type>> future_vector;
+			for (auto i = 0; i < nthreads-1; i++)
+			{
+				future_vector.push_back(std::async(
+				[begin, i, size_per_thread]()
+				{
+					encoder thread_encoder;
+					auto start_iter = begin + i * size_per_thread;
+					data_type result = thread_encoder.encode(start_iter, start_iter+size_per_thread);
+					return result;
+				}));
+			}
+
+			// {TRICKY TRICK} if size % nthread != 0 we don't give a shit, cause we did that staff below
+
+			future_vector.push_back(std::async(
+				[begin, end, nthreads, size_per_thread]()
+			{
+				encoder thread_encoder;
+				auto start_iter = begin + (nthreads-1) * size_per_thread;
+				data_type result = thread_encoder.encode(start_iter, end);
+				return std::make_pair(thread_encoder, result);
+			}));
+
+			for (auto &f: future_vector)
+			{
+				f.wait();
+			}
+			if (!std::all_of(future_vector.begin(), future_vector.end(),
+				[](auto &future){return future.valid();}) )
+			{
+				throw std::runtime_error("GOSPODIN, VI GOOS'");
+			}
+			std::vector<data_type> results(nthreads);
+			std::transform(future_vector.begin(), future_vector.end(), results.begin(),
+				[](auto &future) {return future.get();  });
+			return results;
+		}
 	};
 
 
@@ -64,5 +114,3 @@ namespace lzw
 	//	std::pair<dictionary, std::vector<uint16_t>> encode(const char* input, size_t input_size);
 }
 #endif //ENCODER_HPP
-
-
