@@ -2,6 +2,8 @@
 #define DECODER_HPP
 #include <vector>
 #include <cassert>
+#include <numeric>
+#include <future>
 
 
 namespace lzw
@@ -9,7 +11,7 @@ namespace lzw
 	template <class Value>
 	class decoder
 	{
-		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :(
+		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :( 
 		using map_type = std::vector<Value>;
 	private:
 		map_type _map;
@@ -38,7 +40,7 @@ namespace lzw
 			Value current;
 			assert(current_code < _map.size());
 			std::vector<char> decoded = {_map[current_code][0]}; //main output -- decoded file
-
+			
 			++begin;
 			while (begin != end)
 			{
@@ -67,13 +69,49 @@ namespace lzw
 			return decoded;
 		}
 
-		//РёРґРµРј РїРѕ С„Р°Р№Р»С‹ РґРѕ РїРµСЂРІРѕРіРѕ РЅРµСЌРєСЂР°РЅРЅРёСЂРѕРІР°РЅРЅРѕРіРѕ \n, РґРµР»Р°РµРј С‚СЂРµРґ, РµРјСѓ РѕС‚РґР°РµРј СЌС‚РѕС‚ РёРЅС‚РµСЂРІР°Р» Рё С‚Р°Рє РґРѕ РєРѕРЅС†Р°
+		//идем по файлы до первого неэкраннированного \n, делаем тред, ему отдаем этот интервал и так до конца 
 		template <class RandomAccessIter>
 		static std::vector<char> parallel_decode(RandomAccessIter begin, RandomAccessIter end)
 		{
-
+			const unsigned int nthreads = std::thread::hardware_concurrency();
+			const unsigned int size = end - begin;
+			std::vector<std::future<std::vector<char>>> future_vector;
+			auto first = begin;
+			auto last = begin;
+			while (last != end) {
+				do {
+					last = std::find(last, end, '\n');
+				} while (last != end && *(last - 1) == '\\');
+				future_vector.push_back(std::async(
+					[first, last]()
+				{
+					decoder thread_decoder;
+					std::vector<char> result = thread_decoder.decode(first, last);
+					return result;
+				}));
+				if (last != end)
+				{
+					first = last + 1;
+				}
+			}
+			for (auto &f : future_vector)
+			{
+				f.wait();
+			}
+			if (!std::all_of(future_vector.begin(), future_vector.end(),
+				[](auto &future) {return future.valid(); }))
+			{
+				throw std::runtime_error("GOSPODIN, VI GOOS'");
+			}
+			std::vector<char> result(std::accumulate(future_vector.begin(), future_vector.end(), 0,
+				[](auto total, auto &current) {return total + current.get().size(); }));
+			for (auto& future : future_vector) {
+				std::copy(future.get().begin(), future.get().end(), std::back_inserter(result));
+			}
+			return result;
 		}
-
 	};
 }
 #endif // DECODER_HPP
+
+

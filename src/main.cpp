@@ -43,12 +43,12 @@ void write_file_decode(const std::string& file_path_output, std::vector<char>& d
 //boost file system mapped file
 int main()
 {
-
+	 std::string file_path = "E:\\kursa4\\kek.lzw";
 	 std::string data = "Zhat would Sonya and the count and countess have done, how would they\n\
 		have looked, if nothing had been done, if there had not been those pills\n\
 		to give by the clock, the warm drinks, the chicken cutlets, and all the\n\
 		other details of life ordered by the doctors, the carrying out of which\n\
-		supplied an occupation and consolation to the family circle ?";
+		supplied an occupation and consolation to the family circle?\n";
 	lzw::encoder<std::string> dict_test;
 	auto encoded = dict_test.encode(data.begin(), data.end());
 	for (auto n : encoded)
@@ -59,7 +59,15 @@ int main()
 	std::cout << std::endl;
 	auto encoded_parallel = dict_test.parallel_encode(data.begin(), data.end());
 
+	write_file_parallel_encoded(file_path, encoded_parallel);
 	std::cin.get();
+
+	auto mapped_file = io::mapped_file_source(file_path);
+	lzw::decoder<std::string> dict_dec;
+	auto decoded_parallel = dict_dec.parallel_decode(mapped_file.data(), mapped_file.data() + mapped_file.size());
+	for (const auto &chr : decoded_parallel) {
+		std::cout << chr;
+	}
 
 	/*lzw::decoder<std::string> dect_decode_test;
 	auto decoded = dect_decode_test.decode(encoded.begin(), encoded.end());
@@ -69,3 +77,4 @@ int main()
 	*/
 	return 0;
 }
+

@@ -10,7 +10,7 @@ namespace lzw
 	template <class Key>
 	class encoder
 	{
-		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :(
+		//wanted to use std::vector<char>, but this structure doesn't has the hash function in unordered map :( 
 		using map_type = std::unordered_map<Key, uint16_t>;
 		using data_type = std::vector<uint16_t>;
 
@@ -49,7 +49,7 @@ namespace lzw
 					previous += current;
 				}
 				else
-				{ // if we don't find
+				{ // if we don't find 
 					auto search = _map.find(previous);
 					encoded.emplace_back(search->second);
 					_map.emplace(previous + current, _map.size());
@@ -81,7 +81,7 @@ namespace lzw
 				}));
 			}
 
-			// {TRICKY TRICK} if size % nthread != 0 we don't give a shit, cause we did that staff below
+			// {TRICKY TRICK} if size % nthread != 0 we don't give a shit, cause we did that staff below 
 
 			future_vector.push_back(std::async(
 				[begin, end, nthreads, size_per_thread]()
@@ -89,14 +89,14 @@ namespace lzw
 				encoder thread_encoder;
 				auto start_iter = begin + (nthreads-1) * size_per_thread;
 				data_type result = thread_encoder.encode(start_iter, end);
-				return std::make_pair(thread_encoder, result);
+				return result;
 			}));
 
 			for (auto &f: future_vector)
 			{
 				f.wait();
 			}
-			if (!std::all_of(future_vector.begin(), future_vector.end(),
+			if (!std::all_of(future_vector.begin(), future_vector.end(), 
 				[](auto &future){return future.valid();}) )
 			{
 				throw std::runtime_error("GOSPODIN, VI GOOS'");
@@ -114,3 +114,5 @@ namespace lzw
 	//	std::pair<dictionary, std::vector<uint16_t>> encode(const char* input, size_t input_size);
 }
 #endif //ENCODER_HPP
+
+
