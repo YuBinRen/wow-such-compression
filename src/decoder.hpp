@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <future>
+#include <iterator>
 #include <numeric>
 #include <vector>
 
@@ -12,6 +13,8 @@
 
 namespace lzw {
 
+namespace {
+// TODO: test it
 template <class RandomAccessIter, class T>
 RandomAccessIter find_unescaped(const RandomAccessIter begin,
                                 const RandomAccessIter end,
@@ -27,13 +30,46 @@ RandomAccessIter find_unescaped(const RandomAccessIter begin,
   return current;
 }
 
+template <class Iter> class UnescapeIterator {
+  Iter _inner;
+
+public:
+  UnescapeIterator(Iter it) : _inner(it) {}
+  UnescapeIterator(const UnescapeIterator &) = default;
+  UnescapeIterator(UnescapeIterator &&) = default;
+  UnescapeIterator &operator=(const UnescapeIterator &) = default;
+  UnescapeIterator &operator=(UnescapeIterator &&) = default;
+  ~UnescapeIterator() = default;
+
+  UnescapeIterator operator++() {
+    ++_inner;
+    return *this;
+  }
+
+  /* typename std::iterator_traits<Iter>::value_type */
+  char operator*() {
+    while (*_inner == '\\') {
+      ++_inner;
+    }
+    return *_inner;
+  }
+
+  bool operator!=(const UnescapeIterator &rhs) { return _inner != rhs._inner; }
+};
+
+template <class Iter> UnescapeIterator<Iter> unescape(Iter &&it) {
+  return UnescapeIterator<Iter>(std::forward<Iter>(it));
+}
+
+} // anonymous namespace
+
 template <class Value> class decoder {
   // wanted to use std::vector<char>, but this structure doesn't has the hash
   // function in unordered map :(
-  using map_type = std::vector<Value>;
+  using map_t = std::vector<Value>;
 
 private:
-  map_type _map;
+  map_t _map;
 
 public:
   decoder() {
@@ -49,6 +85,7 @@ public:
   decoder &operator=(decoder &&object) = default;
   ~decoder() = default;
 
+  // TODO: refactor this
   template <class InputIter>
   std::vector<char> decode(InputIter begin, InputIter end) {
     uint16_t current_code = *begin;
@@ -92,12 +129,11 @@ public:
     auto current = begin;
     auto last = find_unescaped(current, end, '\n');
     while (last != end) {
-      // FIXME: data in [first, last] could contain extra '\'
-      // use UnescapeIterator<RandomAccessIter> here
-      futures.emplace_back(std::async([current, last]() {
-        decoder local_decoder;
-        return local_decoder.decode(current, last);
-      }));
+      futures.emplace_back(
+          std::async([ from = unescape(current), to = unescape(last) ]() {
+            decoder local_decoder;
+            return local_decoder.decode(from, to);
+          }));
       current = last + 1;
       last = find_unescaped(current, end, '\n');
     }

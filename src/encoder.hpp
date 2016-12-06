@@ -60,23 +60,26 @@ public:
                                              const RandomAccessIter end) {
     using future_t = std::future<data_t>;
     const auto size = end - begin;
+
+    // FIXME: no need for n threads if size is small
+    // FIXME: if size < nthreads then size_per_thread = 0
     const auto nthreads = std::thread::hardware_concurrency();
     const auto size_per_thread = size / nthreads;
 
     std::vector<future_t> futures;
     for (unsigned int i = 0; i < nthreads - 1; i++) {
-      const auto start = begin + i * size_per_thread;
-      futures.push_back(std::async([start, size_per_thread]() {
-        encoder local_encoder;
-        return local_encoder.encode(start, start + size_per_thread);
-      }));
+      futures.emplace_back(std::async(
+          [ start = begin + i * size_per_thread, size_per_thread ]() {
+            encoder local_encoder;
+            return local_encoder.encode(start, start + size_per_thread);
+          }));
     }
 
-    const auto start = begin + (nthreads - 1) * size_per_thread;
-    futures.emplace_back(std::async([start, end]() {
-      encoder local_encoder;
-      return local_encoder.encode(start, end);
-    }));
+    futures.emplace_back(
+        std::async([ start = begin + (nthreads - 1) * size_per_thread, end ]() {
+          encoder local_encoder;
+          return local_encoder.encode(start, end);
+        }));
 
     std::vector<data_t> encoded_data(nthreads);
     for (auto &&future : futures) {
