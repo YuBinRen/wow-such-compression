@@ -1,4 +1,3 @@
-#include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <iostream>
 #include <stdexcept>
@@ -34,7 +33,6 @@ void decode(const std::string &path) {
 
 void encode(const std::string &path) {
   io::mapped_file_source istream(path);
-  lzw::encoder<std::string> encoder;
   auto encoded = encoder_t::parallel_encode(istream.data(),
                                             istream.data() + istream.size());
   write_to_stream(std::cout, encoded);
