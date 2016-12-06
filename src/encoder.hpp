@@ -10,16 +10,17 @@ namespace lzw {
 template <class Key> class encoder {
   // wanted to use std::vector<char>, but this structure doesn't has the hash
   // function in unordered map :(
-  using map_type = std::unordered_map<Key, uint16_t>;
-  using data_type = std::vector<uint16_t>;
+  using map_t = std::unordered_map<Key, uint16_t>;
+  using data_t = std::vector<uint16_t>;
 
-  map_type _map;
+  map_t _map;
 
 public:
-  using parallel_encoder_type = std::vector<data_type>;
+  using parallel_encoded_data_t = std::vector<data_t>;
+
   encoder() {
     for (int i = 0; i < 0xff; i++) {
-      _map.emplace(std::string(1, i), i);
+      _map.emplace(std::string(1, static_cast<char>(i)), i);
     }
   }
 
@@ -29,16 +30,15 @@ public:
   encoder &operator=(encoder &&object) = default;
   ~encoder() = default;
 
-  template <class InputIter> data_type encode(InputIter begin, InputIter end) {
+  template <class InputIter> data_t encode(InputIter begin, InputIter end) {
     // init block
-    Key previous;      // previous character/characters
-    Key current;       // current character/characters
-    data_type encoded; // main output -- encoded string
+    Key previous;   // previous character/characters
+    Key current;    // current character/characters
+    data_t encoded; // main output -- encoded string
 
     // main cycle
     while (begin != end) {
       current = *begin;
-
       if (_map.find(previous + current) !=
           _map.end()) { // if we find pair of character in hashtable
         previous += current;
@@ -56,50 +56,38 @@ public:
   }
 
   template <class RandomAccessIter>
-  static std::vector<data_type> parallel_encode(RandomAccessIter begin,
-                                                RandomAccessIter end) {
-    const unsigned int size = end - begin;
-    const unsigned int nthreads = std::thread::hardware_concurrency();
-    const unsigned int size_per_thread = size / nthreads;
-    std::vector<std::future<data_type>> future_vector;
-    for (auto i = 0; i < nthreads - 1; i++) {
-      future_vector.push_back(std::async([begin, i, size_per_thread]() {
-        encoder thread_encoder;
-        auto start_iter = begin + i * size_per_thread;
-        data_type result =
-            thread_encoder.encode(start_iter, start_iter + size_per_thread);
-        return result;
+  static std::vector<data_t> parallel_encode(const RandomAccessIter begin,
+                                             const RandomAccessIter end) {
+    using future_t = std::future<data_t>;
+    const auto size = end - begin;
+    const auto nthreads = std::thread::hardware_concurrency();
+    const auto size_per_thread = size / nthreads;
+
+    std::vector<future_t> futures;
+    for (unsigned int i = 0; i < nthreads - 1; i++) {
+      const auto start = begin + i * size_per_thread;
+      futures.push_back(std::async([start, size_per_thread]() {
+        encoder local_encoder;
+        return local_encoder.encode(start, start + size_per_thread);
       }));
     }
 
-    // {TRICKY TRICK} if size % nthread != 0 we don't give a shit, cause we did
-    // that staff below
+    const auto start = begin + (nthreads - 1) * size_per_thread;
+    futures.emplace_back(std::async([start, end]() {
+      encoder local_encoder;
+      return local_encoder.encode(start, end);
+    }));
 
-    future_vector.push_back(
-        std::async([begin, end, nthreads, size_per_thread]() {
-          encoder thread_encoder;
-          auto start_iter = begin + (nthreads - 1) * size_per_thread;
-          data_type result = thread_encoder.encode(start_iter, end);
-          return result;
-        }));
-
-    for (auto &f : future_vector) {
-      f.wait();
+    std::vector<data_t> encoded_data(nthreads);
+    for (auto &&future : futures) {
+      if (future.valid()) {
+        encoded_data.emplace_back(future.get());
+      } else {
+        throw std::runtime_error("Something going wrong.");
+      }
     }
-    if (!std::all_of(future_vector.begin(), future_vector.end(),
-                     [](auto &future) { return future.valid(); })) {
-      throw std::runtime_error("GOSPODIN, VI GOOS'");
-    }
-    std::vector<data_type> results(nthreads);
-    std::transform(future_vector.begin(), future_vector.end(), results.begin(),
-                   [](auto &future) { return future.get(); });
-    return results;
+    return encoded_data;
   }
 };
-
-// dictionary init_map(const char* input, std::size_t count);
-
-//	std::pair<dictionary, std::vector<uint16_t>> encode(const char* input,
-// size_t input_size);
 }
 #endif // ENCODER_HPP

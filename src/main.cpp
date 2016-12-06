@@ -9,16 +9,21 @@ namespace io = boost::iostreams;
 
 using encoder_t = lzw::encoder<std::string>;
 using decoder_t = lzw::decoder<std::string>;
-using encoded_data_t = lzw::encoder<char>::parallel_encoder_type;
+using encoded_data_t = lzw::encoder<char>::parallel_encoded_data_t;
 
 template <class OutputStream>
 void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
-  for (const auto &encode_part : encoded) {
-    for (const auto &value : encode_part) {
-      if (value == '\n' || value == '\\') {
+  for (const auto &encoded_part : encoded) {
+    const char *const begin =
+        reinterpret_cast<const char *>(encoded_part.data());
+    const size_t size = sizeof(encoded_part[0]) * encoded_part.size();
+    const char *const end = begin + size;
+
+    for (const char *current = begin; current != end; ++current) {
+      if (*current == '\n' || *current == '\\') {
         io::put(ostream, '\\');
       }
-      io::put(ostream, value);
+      io::put(ostream, *current);
     }
     io::put(ostream, '\n');
   }
@@ -28,7 +33,7 @@ void decode(const std::string &path) {
   io::mapped_file_source istream(path);
   auto decoded = decoder_t::parallel_decode(istream.data(),
                                             istream.data() + istream.size());
-  std::cout.write(decoded.data(), decoded.size());
+  std::cout.write(decoded.data(), static_cast<std::streamsize>(decoded.size()));
 }
 
 void encode(const std::string &path) {
@@ -55,7 +60,7 @@ int main(int argc, char *argv[]) {
     } else if (what_to_do == "-e") {
       encode(file_path);
     } else {
-      std::cout << "Incorrect option, use -d or -e." << std::endl;
+      std::cout << "Incorrect option. Use -d or -e." << std::endl;
       std::exit(1);
     }
   } catch (const std::exception &e) {

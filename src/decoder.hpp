@@ -1,12 +1,32 @@
 #ifndef DECODER_HPP
 #define DECODER_HPP
+
 #include <algorithm>
 #include <cassert>
 #include <future>
 #include <numeric>
 #include <vector>
 
+// for debug
+#include <iostream>
+
 namespace lzw {
+
+template <class RandomAccessIter, class T>
+RandomAccessIter find_unescaped(const RandomAccessIter begin,
+                                const RandomAccessIter end,
+                                const T &what_to_find) {
+  auto current = std::find(begin, end, what_to_find);
+  if (current == begin) {
+    return current;
+  }
+
+  while (current != end && *(current - 1) == '\\') {
+    current = std::find(current, end, what_to_find);
+  }
+  return current;
+}
+
 template <class Value> class decoder {
   // wanted to use std::vector<char>, but this structure doesn't has the hash
   // function in unordered map :(
@@ -63,40 +83,35 @@ public:
     return decoded;
   }
 
-  //���� �� ����� �� ������� ������������������ \n, ������ ����, ��� ������ ����
-  //�������� � ��� �� �����
   template <class RandomAccessIter>
-  static std::vector<char> parallel_decode(RandomAccessIter begin,
-                                           RandomAccessIter end) {
-    std::vector<std::future<std::vector<char>>> future_vector;
-    auto first = begin;
-    auto last = begin;
+  static std::vector<char> parallel_decode(const RandomAccessIter begin,
+                                           const RandomAccessIter end) {
+    using future_t = std::future<std::vector<char>>;
+    std::vector<future_t> futures;
+
+    auto current = begin;
+    auto last = find_unescaped(current, end, '\n');
     while (last != end) {
-      do {
-        last = std::find(last, end, '\n');
-      } while (last != end && *(last - 1) == '\\');
-      future_vector.push_back(std::async([first, last]() {
-        decoder thread_decoder;
-        std::vector<char> result = thread_decoder.decode(first, last);
-        return result;
+      // FIXME: data in [first, last] could contain extra '\'
+      // use UnescapeIterator<RandomAccessIter> here
+      futures.emplace_back(std::async([current, last]() {
+        decoder local_decoder;
+        return local_decoder.decode(current, last);
       }));
-      if (last != end) {
-        first = last + 1;
+      current = last + 1;
+      last = find_unescaped(current, end, '\n');
+    }
+
+    std::vector<char> decoded;
+    for (auto &future : futures) {
+      if (future.valid()) {
+        const auto &data = future.get();
+        decoded.insert(decoded.end(), data.begin(), data.end());
+      } else {
+        throw std::runtime_error("Something going bad.");
       }
     }
-    for (auto &f : future_vector) {
-      f.wait();
-    }
-    if (!std::all_of(future_vector.begin(), future_vector.end(),
-                     [](auto &future) { return future.valid(); })) {
-      throw std::runtime_error("GOSPODIN, VI GOOS'");
-    }
-    std::vector<char> result;
-    for (auto &future : future_vector) {
-      const auto &part = future.get();
-      std::copy(part.begin(), part.end(), std::back_inserter(result));
-    }
-    return result;
+    return decoded;
   }
 };
 }
