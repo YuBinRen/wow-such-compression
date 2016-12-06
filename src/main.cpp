@@ -1,80 +1,68 @@
-#pragma warning( disable :4996)
-#include <iostream>
-#include <fstream>
-#include "encoder.hpp"
-#include "decoder.hpp"
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
+#include <iostream>
+#include <stdexcept>
 
-using parallel_encoder_type = lzw::encoder<char>::parallel_encoder_type;
+#include "decoder.hpp"
+#include "encoder.hpp"
+
 namespace io = boost::iostreams;
 
-void write_file_encode(const std::string& file_path_output, std::vector<uint16_t>& encoded)
-{
-	io::file_sink output_stream(file_path_output, std::ios::out);
-	output_stream.write(reinterpret_cast<char*>(encoded.data()), encoded.size() * sizeof(encoded[0]));
-	output_stream.flush();
+using encoder_t = lzw::encoder<std::string>;
+using decoder_t = lzw::decoder<std::string>;
+using encoded_data_t = lzw::encoder<char>::parallel_encoder_type;
+
+template <class OutputStream>
+void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
+  for (const auto &encode_part : encoded) {
+    for (const auto &value : encode_part) {
+      if (value == '\n' || value == '\\') {
+        io::put(ostream, '\\');
+      }
+      io::put(ostream, value);
+    }
+    io::put(ostream, '\n');
+  }
 }
 
-void write_file_parallel_encoded(const std::string& file_path_output, parallel_encoder_type encoded)
-{
-	io::file_sink output_stream(file_path_output, std::ios::out);
-	for (const auto &encode_part : encoded)
-	{
-		for (const auto &value: encode_part)
-		{
-			if (value == '\n' || value == '\\')
-			{
-				io::put(output_stream, '\\');
-			}
-			io::put(output_stream, value);
-		}
-		io::put(output_stream, '\n');
-	}
-
+void decode(const std::string &path) {
+  io::mapped_file_source istream(path);
+  auto decoded = decoder_t::parallel_decode(istream.data(),
+                                            istream.data() + istream.size());
+  std::cout.write(decoded.data(), decoded.size());
 }
 
-void write_file_decode(const std::string& file_path_output, std::vector<char>& decoded)
-{
-	io::file_sink outoutput_stream(file_path_output, std::ios::out);
-	outoutput_stream.write(decoded.data(), decoded.size() * sizeof(decoded[0]));
+void encode(const std::string &path) {
+  io::mapped_file_source istream(path);
+  lzw::encoder<std::string> encoder;
+  auto encoded = encoder_t::parallel_encode(istream.data(),
+                                            istream.data() + istream.size());
+  write_to_stream(std::cout, encoded);
 }
 
-//boost file system mapped file
-int main()
-{
-	 std::string file_path = "E:\\kursa4\\kek.lzw";
-	 std::string data = "Zhat would Sonya and the count and countess have done, how would they\n\
-		have looked, if nothing had been done, if there had not been those pills\n\
-		to give by the clock, the warm drinks, the chicken cutlets, and all the\n\
-		other details of life ordered by the doctors, the carrying out of which\n\
-		supplied an occupation and consolation to the family circle?\n";
-	lzw::encoder<std::string> dict_test;
-	auto encoded = dict_test.encode(data.begin(), data.end());
-	for (auto n : encoded)
-	{
-		std::cout << std::hex << n << " ";
+int main(int argc, char *argv[]) {
+  if (argc != 3) {
+    std::cout << "Use args, Luke! \nUsage: <what_to_do> <file_path> where "
+                 "what_to_do in {'-d', '-e'})"
+              << std::endl;
+    exit(0);
+  }
 
-	}
-	std::cout << std::endl;
-	auto encoded_parallel = dict_test.parallel_encode(data.begin(), data.end());
+  const auto what_to_do = std::string(argv[1]);
+  const auto file_path = std::string(argv[2]);
 
-	write_file_parallel_encoded(file_path, encoded_parallel);
-	std::cin.get();
+  try {
+    if (what_to_do == "-d") {
+      decode(file_path);
+    } else if (what_to_do == "-e") {
+      encode(file_path);
+    } else {
+      std::cout << "Incorrect option, use -d or -e." << std::endl;
+      std::exit(1);
+    }
+  } catch (const std::exception &e) {
+    std::cout << "Error: " << e.what() << std::endl;
+  }
 
-	auto mapped_file = io::mapped_file_source(file_path);
-	lzw::decoder<std::string> dict_dec;
-	auto decoded_parallel = dict_dec.parallel_decode(mapped_file.data(), mapped_file.data() + mapped_file.size());
-	for (const auto &chr : decoded_parallel) {
-		std::cout << chr;
-	}
-
-	/*lzw::decoder<std::string> dect_decode_test;
-	auto decoded = dect_decode_test.decode(encoded.begin(), encoded.end());
-	std::string result(decoded.begin(), decoded.end());
-	std::cout << (result == data) << data.size() << std::endl;
-	std::cout << result;
-	*/
-	return 0;
+  return 0;
 }
-
