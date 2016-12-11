@@ -100,6 +100,7 @@ public:
     Value previous;
     Value current;
     assert(current_code < _map.size());
+    // first symbol.size() is always 1byte
     std::vector<char> decoded = {
         _map[current_code][0]}; // main output -- decoded file
 
@@ -112,29 +113,29 @@ public:
         assert(previous_code < _map.size());
         previous = _map[previous_code];
         current = std::string(1, temp[0]);
-        _map.emplace_back(previous + current);
       } else {
         assert(current_code == _map.size());
         assert(previous_code < _map.size());
         previous = _map[previous_code];
         current = std::string(1, _map[previous_code][0]);
+
         decoded.insert(decoded.end(), previous.begin(), previous.end());
         decoded.emplace_back(current[0]);
       }
+      _map.emplace_back(previous + current);
       previous_code = current_code;
       ++begin;
     }
     return decoded;
   }
 
-  template <class RandomAccessIter>
-  static std::vector<char> parallel_decode(const RandomAccessIter begin,
-                                           const RandomAccessIter end) {
+  static std::vector<char> parallel_decode(const uint16_t *begin,
+                                           const uint16_t *end) {
     using future_t = std::future<std::vector<char>>;
     std::vector<future_t> futures;
 
     auto current = begin;
-    auto last = find_unescaped(current, end, '\n');
+    auto last = find_unescaped(current, end, static_cast<uint16_t>('\n'));
     while (last != end) {
       futures.emplace_back(
           std::async([ from = unescape(current), to = unescape(last) ]() {
@@ -142,10 +143,11 @@ public:
             return local_decoder.decode(from, to);
           }));
       current = last + 1;
-      last = find_unescaped(current, end, '\n');
+      last = find_unescaped(current, end, static_cast<uint16_t>('\n'));
     }
 
     std::vector<char> decoded;
+    std::cerr << futures.size();
     assert(futures.size() == 1);
     for (auto &future : futures) {
       if (future.valid()) {

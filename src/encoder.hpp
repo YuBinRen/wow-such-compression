@@ -82,7 +82,6 @@ public:
           encoder local_encoder;
           return local_encoder.encode(start, end);
         }));
-    std::cout << "emplace suxsex" << std::endl;
     std::vector<data_t> encoded_data(nthreads);
     for (auto &&future : futures) {
       if (future.valid()) {

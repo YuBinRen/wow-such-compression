@@ -22,6 +22,7 @@ void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
     for (const char *current = begin; current != end; ++current) {
       if (*current == '\n' || *current == '\\') {
         io::put(ostream, '\\');
+        io::put(ostream, '\0');
       }
       io::put(ostream, *current);
     }
@@ -73,7 +74,21 @@ void iter_test() {
 }
 
 void decode_test() {
-  std::string input = "ENCODE ME PLS)00)";
+  std::string input =
+      "The Project Gutenberg EBook of War and Peace, by Leo Tolstoy\n"
+      "This eBook is for the use of anyone anywhere at no cost and with "
+      "almost\n"
+      "no restrictions whatsoever. You may copy it, give it away or re-use\n"
+      "it under the terms of the Project Gutenberg License included with this\n"
+      "eBook or online at www.gutenberg.org\n"
+      "Title: War and Peace\n"
+      "Author: Leo Tolstoy\n"
+      "Translators: Louise and Aylmer Maude\n"
+      "Posting Date: January 10, 2009 [EBook #2600] Last Updated: November 3,\n"
+      "2016\n"
+      "Language: English\n"
+      "Character set encoding: UTF-8\n"
+      "*** START OF THIS PROJECT GUTENBERG EBOOK WAR AND PEACE ***\n";
   auto encoder = encoder_t();
   auto encoded = encoder.encode(input.begin(), input.end());
   auto decoder = decoder_t();
@@ -83,12 +98,10 @@ void decode_test() {
 
 int main(int argc, char *argv[]) {
   // TODO: WARNING!!!! REMOVE DAMN TEMPLATES LEEEEEEEEEEL
-  iter_test();
-  decode_test();
   // TODO: Replace this with boost library that make the same shit
   if (argc != 3) {
     std::cout << "Use args, Luke! \nUsage: <what_to_do> <file_path> where "
-                 "what_to_do in {'-d', '-e', '-ds', '-es'})"
+                 "what_to_do in {'-d', '-e', '-ds', '-es', '-t'})"
               << std::endl;
     exit(0);
   }
@@ -105,6 +118,9 @@ int main(int argc, char *argv[]) {
       decode_single(file_path);
     } else if (what_to_do == "-es") {
       encode_single(file_path);
+    } else if (what_to_do == "-t") {
+      iter_test();
+      decode_test();
     } else {
       std::cout << "Incorrect option. Use -d or -e." << std::endl;
       std::exit(1);
