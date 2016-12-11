@@ -52,6 +52,7 @@ public:
     return *this;
   }
 
+  // TODO: move this logic to operator++
   typename std::remove_reference<decltype(*std::declval<Iter>())>::type
   operator*() {
     if (_skip_state == false && *_inner == '\\') {
@@ -63,8 +64,10 @@ public:
     return *_inner;
   }
 
-  bool operator!=(const UnescapeIterator &rhs) { return _inner != rhs._inner; }
-  bool operator==(const UnescapeIterator &rhs) { return !(*this != rhs); }
+  bool operator!=(const UnescapeIterator &rhs) const {
+    return _inner != rhs._inner;
+  }
+  bool operator==(const UnescapeIterator &rhs) const { return !(*this != rhs); }
 };
 
 template <class Iter> UnescapeIterator<Iter> unescape(Iter &&it) {
@@ -135,15 +138,18 @@ public:
     std::vector<future_t> futures;
 
     auto current = begin;
-    auto last = find_unescaped(current, end, static_cast<uint16_t>('\n'));
+    auto last = find_unescaped(current, end, '\n');
     while (last != end) {
+      std::cerr << futures.size() << std::endl;
       futures.emplace_back(
           std::async([ from = unescape(current), to = unescape(last) ]() {
+            std::cerr << std::hex << (*from) << std::endl;
+            std::cerr << std::hex << (*to) << std::endl;
             decoder local_decoder;
             return local_decoder.decode(from, to);
           }));
       current = last + 1;
-      last = find_unescaped(current, end, static_cast<uint16_t>('\n'));
+      last = find_unescaped(current, end, '\n');
     }
 
     std::vector<char> decoded;

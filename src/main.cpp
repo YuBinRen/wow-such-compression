@@ -27,6 +27,7 @@ void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
       io::put(ostream, *current);
     }
     io::put(ostream, '\n');
+    io::put(ostream, '\0');
   }
 }
 
