@@ -1,16 +1,17 @@
 #ifndef ENCODER_HPP
 #define ENCODER_HPP
 #include <algorithm>
+#include <cassert>
 #include <future>
 #include <thread>
 #include <unordered_map>
 #include <vector>
 
 namespace lzw {
-template <class Key> class encoder {
+class encoder {
   // wanted to use std::vector<char>, but this structure doesn't has the hash
   // function in unordered map :(
-  using map_t = std::unordered_map<Key, uint16_t>;
+  using map_t = std::unordered_map<std::string, uint16_t>;
   using data_t = std::vector<uint16_t>;
 
   map_t _map;
@@ -18,12 +19,7 @@ template <class Key> class encoder {
 public:
   using parallel_encoded_data_t = std::vector<data_t>;
 
-  encoder() {
-    for (int i = 0; i <= 0xff; i++) {
-      _map.emplace(std::string(1, static_cast<char>(i)), i);
-    }
-  }
-
+  encoder();
   encoder(const encoder &object) = default;
   encoder(encoder &&object) = default;
   encoder &operator=(const encoder &object) = default;
@@ -32,9 +28,9 @@ public:
 
   template <class InputIter> data_t encode(InputIter begin, InputIter end) {
     // init block
-    Key previous;   // previous character/characters
-    Key current;    // current character/characters
-    data_t encoded; // main output -- encoded string
+    std::string previous; // previous character/characters
+    std::string current;  // current character/characters
+    data_t encoded;       // main output -- encoded string
 
     // main cycle
     while (begin != end) {
@@ -82,6 +78,7 @@ public:
           encoder local_encoder;
           return local_encoder.encode(start, end);
         }));
+
     std::vector<data_t> encoded_data(nthreads);
     for (auto &&future : futures) {
       if (future.valid()) {

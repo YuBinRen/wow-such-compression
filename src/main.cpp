@@ -7,9 +7,9 @@
 
 namespace io = boost::iostreams;
 
-using encoder_t = lzw::encoder<std::string>;
+using encoder_t = lzw::encoder;
 using decoder_t = lzw::decoder<std::string>;
-using encoded_data_t = lzw::encoder<char>::parallel_encoded_data_t;
+using encoded_data_t = lzw::encoder::parallel_encoded_data_t;
 
 template <class OutputStream>
 void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
