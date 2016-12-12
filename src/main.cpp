@@ -31,7 +31,7 @@ void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
   }
 }
 
-void decode(const std::string &path) {
+static void decode(const std::string &path) {
   io::mapped_file_source istream(path);
   auto decoded = decoder_t::parallel_decode(
       reinterpret_cast<const uint16_t *>(istream.data()),
@@ -40,23 +40,24 @@ void decode(const std::string &path) {
   std::cout.write(decoded.data(), static_cast<std::streamsize>(decoded.size()));
 }
 
-void encode(const std::string &path) {
+static void encode(const std::string &path) {
   io::mapped_file_source istream(path);
   auto encoded = encoder_t::parallel_encode(istream.data(),
                                             istream.data() + istream.size());
   write_to_stream(std::cout, encoded);
 }
 // TODO: istream -> file
-void encode_single(const std::string &path) {
+static void encode_single(const std::string &path) {
   io::mapped_file_source istream(path);
   auto encoder = encoder_t();
   auto encoded =
       encoder.encode(istream.data(), istream.data() + istream.size());
-  std::cout.write(reinterpret_cast<const char *>(encoded.data()),
-                  encoded.size() * sizeof(encoded[0]));
+  std::cout.write(
+      reinterpret_cast<const char *>(encoded.data()),
+      static_cast<std::streamsize>((encoded.size() * sizeof(encoded[0]))));
 }
 
-void decode_single(const std::string &path) {
+static void decode_single(const std::string &path) {
   io::mapped_file_source istream(path);
   auto decoder = decoder_t();
   auto decoded =
@@ -66,7 +67,7 @@ void decode_single(const std::string &path) {
   std::cout.write(decoded.data(), static_cast<std::streamsize>(decoded.size()));
 }
 
-void iter_test() {
+static void iter_test() {
   std::string input = "\\\\ \\\n \\ \n";
   std::string expected = "\\ \n  \n";
   auto first = lzw::unescape(input.begin());
@@ -74,7 +75,7 @@ void iter_test() {
   assert(std::equal(first, last, expected.begin(), expected.end()));
 }
 
-void decode_test() {
+static void decode_test() {
   std::string input =
       "The Project Gutenberg EBook of War and Peace, by Leo Tolstoy\n"
       "This eBook is for the use of anyone anywhere at no cost and with "
