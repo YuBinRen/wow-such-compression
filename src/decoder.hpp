@@ -52,6 +52,7 @@ public:
         previous = _map[previous_code];
         current = std::string(1, temp[0]);
       } else {
+        //#TODO: need to test
         assert(current_code == _map.size());
         assert(previous_code < _map.size());
         previous = _map[previous_code];
