@@ -1,6 +1,8 @@
 #ifndef UTILITIES_HPP
 #define UTILITIES_HPP
 
+#include <algorithm>
+#include <iostream>
 #include <iterator>
 #include <type_traits>
 
@@ -13,11 +15,9 @@ class UnescapeIterator
                                *std::declval<Iter>())>::type> {
   Iter _inner;
 
-  // state, that show us, do we did a skip at previous dereference
-  bool _skip_state = false;
-
 public:
   UnescapeIterator(Iter it) : _inner(it) {}
+  UnescapeIterator() = default;
   UnescapeIterator(const UnescapeIterator &) = default;
   UnescapeIterator(UnescapeIterator &&) = default;
   UnescapeIterator &operator=(const UnescapeIterator &) = default;
@@ -26,30 +26,45 @@ public:
 
   UnescapeIterator operator++() {
     ++_inner;
+    if (*_inner == '\\') {
+      ++_inner;
+    }
     return *this;
   }
 
-  // TODO: move this logic to operator++
   typename std::remove_reference<decltype(*std::declval<Iter>())>::type
   operator*() {
-    if (_skip_state == false && *_inner == '\\') {
-      ++_inner;
-      _skip_state = true;
-    } else {
-      _skip_state = false;
-    }
     return *_inner;
   }
 
   bool operator!=(const UnescapeIterator &rhs) const {
     return _inner != rhs._inner;
   }
-  bool operator==(const UnescapeIterator &rhs) const { return !(*this != rhs); }
+  bool operator==(const UnescapeIterator &rhs) const {
+    return _inner == rhs._inner;
+  }
 };
 
 template <class Iter> UnescapeIterator<Iter> unescape(Iter &&it) {
   return UnescapeIterator<Iter>(std::forward<Iter>(it));
 }
+
+// TODO: test it
+template <class RandomAccessIter, class T>
+RandomAccessIter find_unescaped(const RandomAccessIter begin,
+                                const RandomAccessIter end,
+                                const T &what_to_find) {
+  auto current = std::find(begin, end, what_to_find);
+  if (current == begin) {
+    return current;
+  }
+  while (current != end && *(current - 1) == '\\') {
+    ++current;
+    current = std::find(current, end, what_to_find);
+  }
+  return current;
+}
+
 } // namespace lzw
 
 #endif // UTILITIES_HPP

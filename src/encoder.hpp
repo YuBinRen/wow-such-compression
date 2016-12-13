@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <iostream>
+
 namespace lzw {
 class encoder {
   // wanted to use std::vector<char>, but this structure doesn't has the hash
@@ -78,8 +80,8 @@ public:
           encoder local_encoder;
           return local_encoder.encode(start, end);
         }));
-
-    std::vector<data_t> encoded_data(nthreads);
+    std::cerr << futures.size() << std::endl;
+    std::vector<data_t> encoded_data;
     for (auto &&future : futures) {
       if (future.valid()) {
         encoded_data.emplace_back(future.get());
