@@ -63,6 +63,7 @@ public:
     // auto search = _map.find(current);
     // assert(search != _map.end());
     // encoded.emplace_back(search->second);
+
     return encoded;
   }
 
@@ -72,8 +73,11 @@ public:
     using future_t = std::future<data_t>;
     const auto size = end - begin;
 
-    const auto nthreads = size < 10 ? 1 : std::thread::hardware_concurrency();
-    const auto size_per_thread = size / nthreads;
+    const auto mb_nthreads =
+        size < 1024 ? 1 : std::thread::hardware_concurrency();
+    const auto size_per_thread =
+        std::min(size / mb_nthreads, static_cast<long>((1 << 15) - 1));
+    const auto nthreads = size / size_per_thread;
 
     std::vector<future_t> futures;
     for (unsigned int i = 0; i < nthreads - 1; i++) {
@@ -89,7 +93,8 @@ public:
           encoder local_encoder;
           return local_encoder.encode(start, end);
         }));
-    std::cerr << futures.size() << std::endl;
+
+    std::cerr << "Using " << futures.size() << " threads" << std::endl;
     std::vector<data_t> encoded_data;
     for (auto &&future : futures) {
       if (future.valid()) {
