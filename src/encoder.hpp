@@ -49,9 +49,20 @@ public:
       }
       ++begin;
     }
-    auto search = _map.find(current);
-    assert(search != _map.end());
-    encoded.emplace_back(search->second);
+
+    if ((previous + current).size() == 1) {
+      auto search = _map.find(current);
+      assert(search != _map.end());
+      encoded.emplace_back(search->second);
+    } else {
+      auto search = _map.find(previous);
+      assert(search != _map.end());
+      encoded.emplace_back(search->second);
+    }
+
+    // auto search = _map.find(current);
+    // assert(search != _map.end());
+    // encoded.emplace_back(search->second);
     return encoded;
   }
 
