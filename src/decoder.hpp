@@ -29,11 +29,13 @@ public:
 
   // TODO: refactor this
   template <class InputIter>
-  std::vector<char> decode(InputIter begin, InputIter end) {
+  std::vector<char> decode(const InputIter begin, const InputIter end) {
+    assert(begin != end);
     if (begin == end) {
       return std::vector<char>();
     }
-    uint16_t current_code = *begin;
+    auto it = begin;
+    uint16_t current_code = *it;
     uint16_t previous_code = current_code;
     std::string previous;
     std::string current;
@@ -42,9 +44,9 @@ public:
     std::vector<char> decoded = {
         _map[current_code][0]}; // main output -- decoded file
 
-    ++begin;
-    while (begin != end) {
-      current_code = *begin;
+    ++it;
+    while (it != end) {
+      current_code = *it;
       if (current_code < _map.size()) {
         const auto &temp = _map[current_code];
         decoded.insert(decoded.end(), temp.begin(), temp.end());
@@ -53,6 +55,9 @@ public:
         current = std::string(1, temp[0]);
       } else {
         //#TODO: need to test
+        if (current_code != _map.size() || previous_code >= _map.size()) {
+          std::cerr << (it - begin) << std::endl;
+        }
         assert(current_code == _map.size());
         assert(previous_code < _map.size());
         previous = _map[previous_code];
@@ -63,7 +68,7 @@ public:
       }
       _map.emplace_back(previous + current);
       previous_code = current_code;
-      ++begin;
+      ++it;
     }
     return decoded;
   }

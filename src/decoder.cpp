@@ -1,5 +1,5 @@
 #include "decoder.hpp"
-
+#include "utilities.hpp"
 #include <iostream>
 
 namespace lzw {
@@ -8,6 +8,8 @@ decoder::decoder() {
     _map.emplace_back(1, i);
   }
 }
+
+// TODO: fix data loseness
 
 std::vector<char> decoder::parallel_decode(const uint16_t *begin,
                                            const uint16_t *end) {
@@ -18,8 +20,12 @@ std::vector<char> decoder::parallel_decode(const uint16_t *begin,
   const uint16_t *current = begin;
   const uint16_t *last = find_unescaped(current, end, '\n');
   while (last != end) {
-    unescape_iter_t from = unescape_iter_t(current);
-    unescape_iter_t to = unescape_iter_t(last);
+    // TODO: check that if doesn't break this function
+    if (*current == '\\') {
+      ++current;
+    }
+    auto from = unescape_iter_t(current);
+    auto to = unescape_iter_t(last);
     futures.emplace_back(std::async(std::launch::async, [from, to]() {
       decoder local_decoder;
       return local_decoder.decode(from, to);

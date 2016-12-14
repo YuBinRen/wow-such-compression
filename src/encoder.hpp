@@ -61,9 +61,7 @@ public:
     using future_t = std::future<data_t>;
     const auto size = end - begin;
 
-    // FIXME: no need for n threads if size is small
-    // FIXME: if size < nthreads then size_per_thread = 0
-    const auto nthreads = size < 1024 ? 1 : std::thread::hardware_concurrency();
+    const auto nthreads = size < 10 ? 1 : std::thread::hardware_concurrency();
     const auto size_per_thread = size / nthreads;
 
     std::vector<future_t> futures;

@@ -24,6 +24,7 @@ public:
   UnescapeIterator &operator=(UnescapeIterator &&) = default;
   ~UnescapeIterator() = default;
 
+  // TODO: Fix if frst character is backslash
   UnescapeIterator operator++() {
     ++_inner;
     if (*_inner == '\\') {
@@ -43,27 +44,18 @@ public:
   bool operator==(const UnescapeIterator &rhs) const {
     return _inner == rhs._inner;
   }
+
+  std::ptrdiff_t operator-(const UnescapeIterator &rhs) const {
+    return _inner - rhs._inner;
+  }
 };
 
 template <class Iter> UnescapeIterator<Iter> unescape(Iter &&it) {
   return UnescapeIterator<Iter>(std::forward<Iter>(it));
 }
 
-// TODO: test it
-template <class RandomAccessIter, class T>
-RandomAccessIter find_unescaped(const RandomAccessIter begin,
-                                const RandomAccessIter end,
-                                const T &what_to_find) {
-  auto current = std::find(begin, end, what_to_find);
-  if (current == begin) {
-    return current;
-  }
-  while (current != end && *(current - 1) == '\\') {
-    ++current;
-    current = std::find(current, end, what_to_find);
-  }
-  return current;
-}
+const uint16_t *find_unescaped(const uint16_t *begin, const uint16_t *end,
+                               const uint16_t &what_to_find);
 
 } // namespace lzw
 

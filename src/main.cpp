@@ -14,58 +14,58 @@ using encoded_data_t = lzw::encoder::parallel_encoded_data_t;
 template <class OutputStream>
 void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
   for (const auto &encoded_part : encoded) {
-    const char *const begin =
-        reinterpret_cast<const char *>(encoded_part.data());
-    const size_t size = sizeof(encoded_part[0]) * encoded_part.size();
-    const char *const end = begin + size;
-
-    for (const char *current = begin; current != end; ++current) {
+    const uint16_t *const begin = encoded_part.data();
+    const uint16_t *const end = begin + encoded_part.size();
+    static const uint16_t BACK_SLASH = '\\';
+    static const uint16_t NEW_LINE = '\n';
+    for (const uint16_t *current = begin; current != end; ++current) {
       if (*current == '\n' || *current == '\\') {
-        io::put(ostream, '\\');
-        io::put(ostream, '\0');
+        assert(io::write(ostream, reinterpret_cast<const char *>(&BACK_SLASH),
+                         sizeof(uint16_t)) == sizeof(uint16_t));
+        // io::put(ostream, '\\');
+        // io::put(ostream, '\0');
       }
-      io::put(ostream, *current);
+      assert(io::write(ostream, reinterpret_cast<const char *>(current),
+                       sizeof(uint16_t)) == sizeof(uint16_t));
     }
-    io::put(ostream, '\n');
-    io::put(ostream, '\0');
+    assert(io::write(ostream, reinterpret_cast<const char *>(&NEW_LINE),
+                     sizeof(uint16_t)) == sizeof(uint16_t));
+    // io::put(ostream, '\n');
+    // io::put(ostream, '\0');
   }
 }
 
 static void decode(const std::string &path) {
-  io::mapped_file_source istream(path);
+  io::mapped_file_source file(path);
   auto decoded = decoder_t::parallel_decode(
-      reinterpret_cast<const uint16_t *>(istream.data()),
-      reinterpret_cast<const uint16_t *>(istream.data()) +
-          istream.size() / sizeof(uint16_t));
+      reinterpret_cast<const uint16_t *>(file.data()),
+      reinterpret_cast<const uint16_t *>(file.data() + file.size()));
   assert(decoded.size() != 0);
   std::cout.write(decoded.data(), static_cast<std::streamsize>(decoded.size()));
   std::cout << std::flush;
 }
 
 static void encode(const std::string &path) {
-  io::mapped_file_source istream(path);
-  auto encoded = encoder_t::parallel_encode(istream.data(),
-                                            istream.data() + istream.size());
+  io::mapped_file_source file(path);
+  auto encoded =
+      encoder_t::parallel_encode(file.data(), file.data() + file.size());
   write_to_stream(std::cout, encoded);
 }
-// TODO: istream -> file
 static void encode_single(const std::string &path) {
-  io::mapped_file_source istream(path);
+  io::mapped_file_source file(path);
   auto encoder = encoder_t();
-  auto encoded =
-      encoder.encode(istream.data(), istream.data() + istream.size());
+  auto encoded = encoder.encode(file.data(), file.data() + file.size());
   std::cout.write(
       reinterpret_cast<const char *>(encoded.data()),
       static_cast<std::streamsize>((encoded.size() * sizeof(encoded[0]))));
 }
 
 static void decode_single(const std::string &path) {
-  io::mapped_file_source istream(path);
+  io::mapped_file_source file(path);
   auto decoder = decoder_t();
-  auto decoded =
-      decoder.decode(reinterpret_cast<const uint16_t *>(istream.data()),
-                     reinterpret_cast<const uint16_t *>(istream.data()) +
-                         istream.size() / sizeof(uint16_t));
+  auto decoded = decoder.decode(
+      reinterpret_cast<const uint16_t *>(file.data()),
+      reinterpret_cast<const uint16_t *>(file.data() + file.size()));
   std::cout.write(decoded.data(), static_cast<std::streamsize>(decoded.size()));
 }
 
@@ -117,7 +117,6 @@ static void decode_test() {
 }
 
 int main(int argc, char *argv[]) {
-  // TODO: WARNING!!!! REMOVE DAMN TEMPLATES LEEEEEEEEEEL
   // TODO: Replace this with boost library that make the same shit
   if (argc != 3) {
     std::cout << "Use args, Luke! \nUsage: <what_to_do> <file_path> where "
@@ -129,29 +128,29 @@ int main(int argc, char *argv[]) {
   const auto what_to_do = std::string(argv[1]);
   const auto file_path = std::string(argv[2]);
 
-  try {
-    if (what_to_do == "-d") {
-      decode(file_path);
-    } else if (what_to_do == "-e") {
-      encode(file_path);
-    } else if (what_to_do == "-ds") {
-      decode_single(file_path);
-    } else if (what_to_do == "-es") {
-      encode_single(file_path);
-    } else if (what_to_do == "-ts") {
-      iter_test();
-      decode_test();
-    } else if (what_to_do == "-t") {
-      threading_decode_test();
-    } else {
-      std::cout << "Incorrect option. Use -d or -e." << std::endl;
-      std::exit(1);
-    }
+  // try {
+  if (what_to_do == "-d") {
+    decode(file_path);
+  } else if (what_to_do == "-e") {
+    encode(file_path);
+  } else if (what_to_do == "-ds") {
+    decode_single(file_path);
+  } else if (what_to_do == "-es") {
+    encode_single(file_path);
+  } else if (what_to_do == "-ts") {
+    iter_test();
+    decode_test();
+  } else if (what_to_do == "-t") {
+    threading_decode_test();
+  } else {
+    std::cerr << "Incorrect option. Use -d or -e." << std::endl;
+    std::exit(1);
   }
+  //}
 
-  catch (const std::exception &e) {
-    std::cout << "Error: " << e.what() << std::endl;
-  }
+  // catch (const std::exception &e) {
+  // std::cerr << "Error: " << e.what() << std::endl;
+  //}
 
   return 0;
 }
