@@ -12,12 +12,13 @@ decoder::decoder() {
 std::vector<char> decoder::parallel_decode(const uint16_t *begin,
                                            const uint16_t *end) {
   using future_t = std::future<std::vector<char>>;
-  using unescape_iter_t = UnescapeIterator<const uint16_t *>;
+  using unescape_iter_t = unescape_iterator<const uint16_t *>;
   std::vector<future_t> futures;
 
   const uint16_t *current = begin;
   const uint16_t *last = find_unescaped(current, end, '\n');
   while (last != end) {
+    // unescape_iterator can't do this safely
     if (*current == '\\') {
       ++current;
     }

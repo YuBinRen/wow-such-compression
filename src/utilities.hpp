@@ -9,23 +9,22 @@
 namespace lzw {
 
 template <class Iter>
-class UnescapeIterator
+class unescape_iterator
     : public std::iterator<std::forward_iterator_tag,
                            typename std::remove_reference<decltype(
                                *std::declval<Iter>())>::type> {
   Iter _inner;
 
 public:
-  UnescapeIterator(Iter it) : _inner(it) {}
-  UnescapeIterator() = default;
-  UnescapeIterator(const UnescapeIterator &) = default;
-  UnescapeIterator(UnescapeIterator &&) = default;
-  UnescapeIterator &operator=(const UnescapeIterator &) = default;
-  UnescapeIterator &operator=(UnescapeIterator &&) = default;
-  ~UnescapeIterator() = default;
+  unescape_iterator(Iter it) : _inner(it) {}
+  unescape_iterator() = default;
+  unescape_iterator(const unescape_iterator &) = default;
+  unescape_iterator(unescape_iterator &&) = default;
+  unescape_iterator &operator=(const unescape_iterator &) = default;
+  unescape_iterator &operator=(unescape_iterator &&) = default;
+  ~unescape_iterator() = default;
 
-  // TODO: Fix if frst character is backslash
-  UnescapeIterator operator++() {
+  unescape_iterator operator++() {
     ++_inner;
     if (*_inner == '\\') {
       ++_inner;
@@ -38,20 +37,20 @@ public:
     return *_inner;
   }
 
-  bool operator!=(const UnescapeIterator &rhs) const {
+  bool operator!=(const unescape_iterator &rhs) const {
     return _inner != rhs._inner;
   }
-  bool operator==(const UnescapeIterator &rhs) const {
+  bool operator==(const unescape_iterator &rhs) const {
     return _inner == rhs._inner;
   }
 
-  std::ptrdiff_t operator-(const UnescapeIterator &rhs) const {
+  std::ptrdiff_t operator-(const unescape_iterator &rhs) const {
     return _inner - rhs._inner;
   }
 };
 
-template <class Iter> UnescapeIterator<Iter> unescape(Iter &&it) {
-  return UnescapeIterator<Iter>(std::forward<Iter>(it));
+template <class Iter> unescape_iterator<Iter> unescape(Iter &&it) {
+  return unescape_iterator<Iter>(std::forward<Iter>(it));
 }
 
 const uint16_t *find_unescaped(const uint16_t *begin, const uint16_t *end,

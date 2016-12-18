@@ -98,7 +98,6 @@ public:
     std::vector<data_t> encoded_data;
     for (auto &&future : futures) {
       if (future.valid()) {
-        std::cerr << "TYT EMPLACE NIZHE" << std::endl;
         encoded_data.emplace_back(future.get());
       } else {
         throw std::runtime_error("Something going wrong.");

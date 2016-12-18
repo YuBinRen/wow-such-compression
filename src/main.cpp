@@ -1,4 +1,5 @@
 #include <boost/iostreams/device/mapped_file.hpp>
+#include <boost/program_options.hpp>
 #include <iostream>
 #include <stdexcept>
 
@@ -18,20 +19,17 @@ void write_to_stream(OutputStream &ostream, encoded_data_t encoded) {
     const uint16_t *const end = begin + encoded_part.size();
     static const uint16_t BACK_SLASH = '\\';
     static const uint16_t NEW_LINE = '\n';
+
     for (const uint16_t *current = begin; current != end; ++current) {
       if (*current == '\n' || *current == '\\') {
         assert(io::write(ostream, reinterpret_cast<const char *>(&BACK_SLASH),
                          sizeof(uint16_t)) == sizeof(uint16_t));
-        // io::put(ostream, '\\');
-        // io::put(ostream, '\0');
       }
       assert(io::write(ostream, reinterpret_cast<const char *>(current),
                        sizeof(uint16_t)) == sizeof(uint16_t));
     }
     assert(io::write(ostream, reinterpret_cast<const char *>(&NEW_LINE),
                      sizeof(uint16_t)) == sizeof(uint16_t));
-    // io::put(ostream, '\n');
-    // io::put(ostream, '\0');
   }
 }
 
@@ -69,88 +67,38 @@ static void decode_single(const std::string &path) {
   std::cout.write(decoded.data(), static_cast<std::streamsize>(decoded.size()));
 }
 
-static const std::string TEXT =
-    "The Project Gutenberg EBook of War and Peace, by Leo Tolstoy\n"
-    "This eBook is for the use of anyone anywhere at no cost and with "
-    "almost\n"
-    "no restrictions whatsoever. You may copy it, give it away or re-use\n"
-    "it under the terms of the Project Gutenberg License included with this\n"
-    "eBook or online at www.gutenberg.org\n"
-    "Title: War and Peace\n"
-    "Author: Leo Tolstoy\n"
-    "Translators: Louise and Aylmer Maude\n"
-    "Posting Date: January 10, 2009 [EBook #2600] Last Updated: November 3,\n"
-    "2016\n"
-    "Language: English\n"
-    "Character set encoding: UTF-8\n"
-    "*** START OF THIS PROJECT GUTENBERG EBOOK WAR AND PEACE ***\n";
-
-static void iter_test() {
-  std::string input = "\\\\ \\\n \\ \n";
-  std::string expected = "\\ \n  \n";
-  auto first = lzw::unescape(input.begin());
-  auto last = lzw::unescape(input.end());
-  assert(std::equal(first, last, expected.begin(), expected.end()));
-}
-
-static void threading_decode_test() {
-  const auto encoded = encoder_t::parallel_encode(TEXT.begin(), TEXT.end());
-  const auto encoded_total = [&encoded]() {
-    std::vector<uint16_t> total;
-    for (const auto &part : encoded) {
-      total.insert(total.end(), part.begin(), part.end());
-    }
-    return total;
-  }();
-  const auto decoded = decoder_t::parallel_decode(
-      encoded_total.data(), encoded_total.data() + encoded_total.size());
-  std::cout << std::string(decoded.begin(), decoded.end());
-  assert(TEXT == std::string(decoded.begin(), decoded.end()));
-}
-
-static void decode_test() {
-  auto encoder = encoder_t();
-  auto encoded = encoder.encode(TEXT.begin(), TEXT.end());
-  auto decoder = decoder_t();
-  auto decoded = decoder.decode(encoded.begin(), encoded.end());
-  assert(TEXT == std::string(decoded.begin(), decoded.end()));
-}
-
 int main(int argc, char *argv[]) {
-  // TODO: Replace this with boost library that make the same shit
-  if (argc != 3) {
-    std::cout << "Use args, Luke! \nUsage: <what_to_do> <file_path> where "
-                 "what_to_do in {'-d', '-e', '-ds', '-es', '-ts', '-t'})"
-              << std::endl;
-    exit(0);
+  using option_description_t = boost::program_options::options_description;
+  using boost::program_options::command_line_parser;
+  using variables_map_t = boost::program_options::variables_map;
+
+  option_description_t gen_options("General options");
+  gen_options.add_options()
+      ("help,h", "Show help")
+      ("encode,e", boost::program_options::value<std::string>(), "Encode file using several threads")
+      ("encode-single,s", boost::program_options::value<std::string>(), "Encode file using one thread")
+      ("decode,d", boost::program_options::value<std::string>(), "Decode file using that much threads as we using at encode statement")
+      ("decode-single,z", boost::program_options::value<std::string>(), "Decode file using one thread");
+
+  variables_map_t vm;
+  auto parsed = command_line_parser(argc, argv).options(gen_options).run();
+  boost::program_options::store(parsed, vm);
+  boost::program_options::notify(vm);
+
+  if (vm.count("encode")){
+    encode(vm["encode"].as<std::string>());
   }
-
-  const auto what_to_do = std::string(argv[1]);
-  const auto file_path = std::string(argv[2]);
-
-  // try {
-  if (what_to_do == "-d") {
-    decode(file_path);
-  } else if (what_to_do == "-e") {
-    encode(file_path);
-  } else if (what_to_do == "-ds") {
-    decode_single(file_path);
-  } else if (what_to_do == "-es") {
-    encode_single(file_path);
-  } else if (what_to_do == "-ts") {
-    iter_test();
-    decode_test();
-  } else if (what_to_do == "-t") {
-    threading_decode_test();
-  } else {
-    std::cerr << "Incorrect option. Use -d or -e." << std::endl;
-    std::exit(1);
+  else if (vm.count("encode-single")){
+    encode_single(vm["encode-single"].as<std::string>());
   }
-  //}
-
-  // catch (const std::exception &e) {
-  // std::cerr << "Error: " << e.what() << std::endl;
-  //}
-
+  else if (vm.count("decode")){
+    decode(vm["decode"].as<std::string>());
+  }
+  else if (vm.count("decode-single")){
+    decode_single(vm["decode-single"].as<std::string>());
+  }
+  else {
+    std::cout << gen_options;
+  }
   return 0;
 }

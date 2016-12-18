@@ -27,18 +27,15 @@ public:
   decoder &operator=(decoder &&object) = default;
   ~decoder() = default;
 
-  // TODO: refactor this
   template <class InputIter>
   std::vector<char> decode(const InputIter begin, const InputIter end) {
-    assert(begin != end);
     if (begin == end) {
       return std::vector<char>();
     }
+
     auto it = begin;
     uint16_t current_code = *it;
     uint16_t previous_code = current_code;
-    std::string previous;
-    std::string current;
     assert(current_code < _map.size());
     // first symbol.size() is always 1byte
     std::vector<char> decoded = {
@@ -46,25 +43,20 @@ public:
 
     ++it;
     while (it != end) {
+      char current;
       current_code = *it;
+      std::string previous = _map[previous_code];
       if (current_code < _map.size()) {
         const auto &temp = _map[current_code];
         decoded.insert(decoded.end(), temp.begin(), temp.end());
         assert(previous_code < _map.size());
-        previous = _map[previous_code];
-        current = std::string(1, temp[0]);
+        current = temp[0];
       } else {
-        //#TODO: need to test
-        if (current_code != _map.size() || previous_code >= _map.size()) {
-          std::cerr << (it - begin) << std::endl;
-        }
         assert(current_code == _map.size());
         assert(previous_code < _map.size());
-        previous = _map[previous_code];
-        current = std::string(1, _map[previous_code][0]);
-
+        current = _map[previous_code][0];
         decoded.insert(decoded.end(), previous.begin(), previous.end());
-        decoded.emplace_back(current[0]);
+        decoded.emplace_back(current);
       }
       _map.emplace_back(previous + current);
       previous_code = current_code;
