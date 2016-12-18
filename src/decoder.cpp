@@ -9,8 +9,6 @@ decoder::decoder() {
   }
 }
 
-// TODO: fix data loseness
-
 std::vector<char> decoder::parallel_decode(const uint16_t *begin,
                                            const uint16_t *end) {
   using future_t = std::future<std::vector<char>>;
@@ -20,7 +18,6 @@ std::vector<char> decoder::parallel_decode(const uint16_t *begin,
   const uint16_t *current = begin;
   const uint16_t *last = find_unescaped(current, end, '\n');
   while (last != end) {
-    // TODO: check that if doesn't break this function
     if (*current == '\\') {
       ++current;
     }

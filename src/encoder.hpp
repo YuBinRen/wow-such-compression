@@ -33,7 +33,6 @@ public:
     std::string previous; // previous character/characters
     std::string current;  // current character/characters
     data_t encoded;       // main output -- encoded string
-    int UINT_16_MAX = 65535;
 
     // main cycle
     while (begin != end) {
@@ -45,7 +44,7 @@ public:
         auto search = _map.find(previous);
         assert(search != _map.end());
         encoded.emplace_back(search->second);
-        if (_map.size() < UINT_16_MAX - 1) {
+        if (_map.size() < std::numeric_limits<uint16_t>::max()) {
           _map.emplace(previous + current, _map.size());
         }
         previous = current;
@@ -77,8 +76,7 @@ public:
     const auto size = end - begin;
 
     const auto nthreads = size < 1024 ? 1 : std::thread::hardware_concurrency();
-    const auto size_per_thread =
-        std::min(size / nthreads, static_cast<long>((1 << 15) - 1));
+    const auto size_per_thread = size / nthreads;
     // const auto nthreads = size / size_per_thread;
 
     std::vector<future_t> futures;
@@ -100,6 +98,7 @@ public:
     std::vector<data_t> encoded_data;
     for (auto &&future : futures) {
       if (future.valid()) {
+        std::cerr << "TYT EMPLACE NIZHE" << std::endl;
         encoded_data.emplace_back(future.get());
       } else {
         throw std::runtime_error("Something going wrong.");
