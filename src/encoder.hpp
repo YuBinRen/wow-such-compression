@@ -33,6 +33,7 @@ public:
     std::string previous; // previous character/characters
     std::string current;  // current character/characters
     data_t encoded;       // main output -- encoded string
+    int UINT_16_MAX = 65535;
 
     // main cycle
     while (begin != end) {
@@ -44,7 +45,9 @@ public:
         auto search = _map.find(previous);
         assert(search != _map.end());
         encoded.emplace_back(search->second);
-        _map.emplace(previous + current, _map.size());
+        if (_map.size() < UINT_16_MAX - 1) {
+          _map.emplace(previous + current, _map.size());
+        }
         previous = current;
       }
       ++begin;
@@ -73,11 +76,10 @@ public:
     using future_t = std::future<data_t>;
     const auto size = end - begin;
 
-    const auto mb_nthreads =
-        size < 1024 ? 1 : std::thread::hardware_concurrency();
+    const auto nthreads = size < 1024 ? 1 : std::thread::hardware_concurrency();
     const auto size_per_thread =
-        std::min(size / mb_nthreads, static_cast<long>((1 << 15) - 1));
-    const auto nthreads = size / size_per_thread;
+        std::min(size / nthreads, static_cast<long>((1 << 15) - 1));
+    // const auto nthreads = size / size_per_thread;
 
     std::vector<future_t> futures;
     for (unsigned int i = 0; i < nthreads - 1; i++) {
