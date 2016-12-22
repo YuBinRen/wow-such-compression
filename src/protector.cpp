@@ -44,7 +44,10 @@ void protector::make_licence() {
   int32_t access_value = -1;
   protector guard;
   std::array<uint8_t, 256> buffer;
-  *reinterpret_cast<int32_t *>(buffer.data()) = access_value;
+  std::fill(reinterpret_cast<int32_t *>(buffer.data()),
+            reinterpret_cast<int32_t *>(buffer.data() + buffer.size()),
+            access_value);
+
   guard.aes_encrypt(buffer.data());
   boost::iostreams::mapped_file file(path);
   std::copy(buffer.data(), buffer.data() + buffer.size(), file.data());
@@ -78,19 +81,36 @@ bool protector::has_access() {
   if (file.size() != key.size()) {
     return false;
   }
+
   std::array<uint8_t, 256> buffer;
   std::copy(file.data(), file.data() + file.size(), buffer.begin());
   guard.aes_decrypt(buffer.data());
   int32_t access_value = *reinterpret_cast<int32_t *>(buffer.data());
-  if (access_value <= 0 && access_value != -1) {
+
+  if (std::any_of(
+          reinterpret_cast<int32_t *>(buffer.data()),
+          reinterpret_cast<int32_t *>(buffer.data() + buffer.size()),
+          [access_value](auto value) { return value != access_value; })) {
     return false;
-  } else {
-    access_value--;
-    *reinterpret_cast<int32_t *>(buffer.data()) = access_value;
-    guard.aes_encrypt(buffer.data());
-    std::copy(buffer.data(), buffer.data() + buffer.size(), file.data());
+  }
+
+  if (access_value == -1) {
     return true;
   }
+
+  if (access_value <= 0) {
+    return false;
+  }
+
+  access_value--;
+  std::fill(reinterpret_cast<int32_t *>(buffer.data()),
+            reinterpret_cast<int32_t *>(buffer.data() + buffer.size()),
+            access_value);
+
+  guard.aes_encrypt(buffer.data());
+  std::copy(buffer.data(), buffer.data() + buffer.size(), file.data());
+
+  return true;
 }
 
 void protector::aes_encrypt(uint8_t *plaintext) {
