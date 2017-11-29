@@ -62,10 +62,6 @@ public:
       encoded.emplace_back(search->second);
     }
 
-    // auto search = _map.find(current);
-    // assert(search != _map.end());
-    // encoded.emplace_back(search->second);
-
     return encoded;
   }
 
@@ -77,7 +73,6 @@ public:
 
     const auto nthreads = size < 1024 ? 1 : std::thread::hardware_concurrency();
     const auto size_per_thread = size / nthreads;
-    // const auto nthreads = size / size_per_thread;
 
     std::vector<future_t> futures;
     for (unsigned int i = 0; i < nthreads - 1; i++) {

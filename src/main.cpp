@@ -6,7 +6,7 @@
 
 #include "decoder.hpp"
 #include "encoder.hpp"
-#include "protector.hpp"
+
 
 namespace io = boost::iostreams;
 
@@ -69,16 +69,6 @@ static void decode_single(const std::string &path) {
   std::cout.write(decoded.data(), static_cast<std::streamsize>(decoded.size()));
 }
 
-void protector_test() {
-  protector guard;
-  std::array<uint8_t, 256> plaintext = {1, 3, 3, 3, 7};
-  const std::array<uint8_t, 256> expected_result = {1, 3, 3, 3, 7};
-  guard.aes_encrypt(plaintext.data());
-  guard.aes_decrypt(plaintext.data());
-  assert(std::equal(plaintext.begin(), plaintext.end(), expected_result.begin(),
-                    expected_result.end()));
-}
-
 int main(int argc, char *argv[]) {
   using option_description_t = boost::program_options::options_description;
   using boost::program_options::command_line_parser;
@@ -103,29 +93,16 @@ int main(int argc, char *argv[]) {
     std::cout << gen_options;
     return 0;
   }
-  if (protector::has_access()) {
-    if (vm.count("encode")) {
+  if (vm.count("encode")) {
       encode(vm["encode"].as<std::string>());
-    } else if (vm.count("encode-single")) {
+  } else if (vm.count("encode-single")) {
       encode_single(vm["encode-single"].as<std::string>());
-    } else if (vm.count("decode")) {
+  } else if (vm.count("decode")) {
       decode(vm["decode"].as<std::string>());
-    } else if (vm.count("decode-single")) {
+  } else if (vm.count("decode-single")) {
       decode_single(vm["decode-single"].as<std::string>());
-    } else {
-      std::cout << gen_options;
-    }
   } else {
-    std::string licence_key;
-    std::cout << "Your limited version has expired" << std::endl;
-    std::cout << "Please enter the licence key: ";
-    std::cin >> licence_key;
-    if (protector::check_key(licence_key)) {
-      std::cout << "Key is valid, gl next time" << std::endl;
-      protector::make_licence();
-    } else {
-      std::cout << "key is invalid, gl next time" << std::endl;
-    }
+      std::cout << gen_options;
   }
   return 0;
 }
